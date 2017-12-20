@@ -10,16 +10,16 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
- *  Wemo Maker Service Manager
+ *  Wemo Dimmer Service Manager
  *
  *  Author: Chris Kitch
  *  Date: 2016-04-06
  */
 definition(
-	name: "Wemo Maker (Connect)",
+	name: "Wemo Dimmer (Connect)",
 	namespace: "kriskit.wemo",
 	author: "Chris Kitch",
-	description: "Allows you to integrate your WeMo Maker with SmartThings.",
+	description: "Allows you to integrate your WeMo Dimmer with SmartThings.",
 	category: "My Apps",
 	iconUrl: "https://s3.amazonaws.com/smartapp-icons/Partner/wemo.png",
 	iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Partner/wemo@2x.png",
@@ -42,7 +42,7 @@ def firstPage()
 
     //ssdp request every 25 seconds
     if((refreshCount % 5) == 0) {
-        discoverWemoMakers()
+        discoverWemoDimmers()
     }
 
     //setup.xml request every 5 seconds except on discoveries
@@ -50,11 +50,11 @@ def firstPage()
         verifyDevices()
     }
 
-    def makersDiscovered = makersDiscovered()
+    def DimmersDiscovered = DimmersDiscovered()
 
     return dynamicPage(name:"firstPage", title:"Discovery Started!", nextPage:"", refreshInterval: refreshInterval, install:true, uninstall: true) {
         section("Select a device...") {
-            input "selectedMakers", "enum", required:false, title:"Select Wemo Makers \n(${makersDiscovered.size() ?: 0} found)", multiple:true, options:makersDiscovered
+            input "selectedDimmers", "enum", required:false, title:"Select Wemo Dimmers \n(${DimmersDiscovered.size() ?: 0} found)", multiple:true, options:DimmersDiscovered
         }
     }
 }
@@ -75,18 +75,18 @@ def initialize() {
 
 	ssdpSubscribe()
 
-	if (selectedMakers)
-		addMakers()
+	if (selectedDimmers)
+		addDimmers()
 
 	runIn(5, "subscribeToDevices") //initial subscriptions delayed by 5 seconds
 	runIn(10, "refreshDevices") //refresh devices, delayed by 10 seconds
 	runEvery5Minutes("refresh")
 }
 
-private discoverWemoMakers()
+private discoverWemoDimmers()
 {
 	log.debug "Sending discover request..."
-	sendHubCommand(new physicalgraph.device.HubAction("lan discovery urn:Belkin:device:Maker:1", physicalgraph.device.Protocol.LAN))
+	sendHubCommand(new physicalgraph.device.HubAction("lan discovery urn:Belkin:device:Dimmer:1", physicalgraph.device.Protocol.LAN))
 }
 
 private getFriendlyName(ip, deviceNetworkId) {
@@ -95,8 +95,8 @@ private getFriendlyName(ip, deviceNetworkId) {
 }
 
 private verifyDevices() {
-	def makers = getWemoMakers().findAll { it?.value?.verified != true }
-	def devices = makers
+	def Dimmers = getWemoDimmers().findAll { it?.value?.verified != true }
+	def devices = Dimmers
 	devices.each {
     	def host = convertHexToIP(it.value.ip) + ":" + convertHexToInt(it.value.port)
         def networkId = (it.value.ip + ":" + it.value.port)
@@ -109,31 +109,31 @@ void ssdpSubscribe() {
     	return
 
 	log.debug "Subscribing to SSDP..."
-	subscribe(location, "ssdpTerm.urn:Belkin:device:Maker:1", ssdpMakerHandler)
+	subscribe(location, "ssdpTerm.urn:Belkin:device:Dimmer:1", ssdpDimmerHandler)
     state.ssdpSubscribed = true
 }
 
 def devicesDiscovered() {
-	def makers = getWemoMakers()
-	def devices = makers
+	def Dimmers = getWemoDimmers()
+	def devices = Dimmers
 	devices?.collect{ [app.id, it.ssdpUSN].join('.') }
 }
 
-def makersDiscovered() {
-	def makers = getWemoMakers().findAll { it?.value?.verified == true }
+def DimmersDiscovered() {
+	def Dimmers = getWemoDimmers().findAll { it?.value?.verified == true }
 	def map = [:]
-	makers.each {
-		def value = it.value.name ?: "WeMo Maker ${it.value.ssdpUSN.split(':')[1][-3..-1]}"
+	Dimmers.each {
+		def value = it.value.name ?: "WeMo Dimmer ${it.value.ssdpUSN.split(':')[1][-3..-1]}"
 		def key = it.value.mac
 		map["${key}"] = value
 	}
 	map
 }
 
-def getWemoMakers()
+def getWemoDimmers()
 {
-	if (!state.makers) { state.makers = [:] }
-	state.makers
+	if (!state.Dimmers) { state.Dimmers = [:] }
+	state.Dimmers
 }
 
 
@@ -165,29 +165,29 @@ def subscribeToDevices() {
 	}
 }
 
-def addMakers() {
-	def makers = getWemoMakers()
+def addDimmers() {
+	def Dimmers = getWemoDimmers()
 
-	selectedMakers.each { dni ->
-		def selectedMaker = makers.find { it.value.mac == dni } ?: makers.find { "${it.value.ip}:${it.value.port}" == dni }
+	selectedDimmers.each { dni ->
+		def selectedDimmer = Dimmers.find { it.value.mac == dni } ?: Dimmers.find { "${it.value.ip}:${it.value.port}" == dni }
 		def d
-		if (selectedMaker) {
+		if (selectedDimmer) {
 			d = getChildDevices()?.find {
-				it.deviceNetworkId == selectedMaker.value.mac || it.device.getDataValue("mac") == selectedMaker.value.mac
+				it.deviceNetworkId == selectedDimmer.value.mac || it.device.getDataValue("mac") == selectedDimmer.value.mac
 			}
 		}
 
 		if (!d) {
-			log.debug "Creating WeMo Maker with dni: ${selectedMaker.value.mac}"
-			d = addChildDevice("kriskit.wemo", "Wemo Maker", selectedMaker.value.mac, selectedMaker?.value.hub, [
-				"label": selectedMaker?.value?.name ?: "Wemo Maker",
+			log.debug "Creating WeMo Dimmer with dni: ${selectedDimmer.value.mac}"
+			d = addChildDevice("kriskit.wemo", "Wemo Dimmer", selectedDimmer.value.mac, selectedDimmer?.value.hub, [
+				"label": selectedDimmer?.value?.name ?: "Wemo Dimmer",
 				"data": [
-					"mac": selectedMaker.value.mac,
-					"ip": selectedMaker.value.ip,
-					"port": selectedMaker.value.port
+					"mac": selectedDimmer.value.mac,
+					"ip": selectedDimmer.value.ip,
+					"port": selectedDimmer.value.port
 				]
 			])
-			def ipvalue = convertHexToIP(selectedMaker.value.ip)
+			def ipvalue = convertHexToIP(selectedDimmer.value.ip)
 			d.sendEvent(name: "currentIP", value: ipvalue, descriptionText: "IP is ${ipvalue}")
 			log.debug "Created ${d.displayName} with id: ${d.id}, dni: ${d.deviceNetworkId}"
 		} else {
@@ -196,19 +196,19 @@ def addMakers() {
 	}
 }
 
-def ssdpMakerHandler(evt) {
+def ssdpDimmerHandler(evt) {
 	def description = evt.description
 	def hub = evt?.hubId
 	def parsedEvent = parseDiscoveryMessage(description)
 	parsedEvent << ["hub":hub]
 
-	def makers = getWemoMakers()
-	if (!(makers."${parsedEvent.ssdpUSN.toString()}")) {
+	def Dimmers = getWemoDimmers()
+	if (!(Dimmers."${parsedEvent.ssdpUSN.toString()}")) {
 		//if it doesn't already exist
-		makers << ["${parsedEvent.ssdpUSN.toString()}":parsedEvent]
+		Dimmers << ["${parsedEvent.ssdpUSN.toString()}":parsedEvent]
 	} else {
 		log.debug "Device was already found in state..."
-		def d = makers."${parsedEvent.ssdpUSN.toString()}"
+		def d = Dimmers."${parsedEvent.ssdpUSN.toString()}"
 		boolean deviceChangedValues = false
 		log.debug "$d.ip <==> $parsedEvent.ip"
 		if(d.ip != parsedEvent.ip || d.port != parsedEvent.port) {
@@ -234,8 +234,8 @@ void setupHandler(hubResponse) {
 		def body = hubResponse.xml
 		def wemoDevices = []
 		String deviceType = body?.device?.deviceType?.text() ?: ""
-		if (deviceType.startsWith("urn:Belkin:device:Maker:1")) {
-			wemoDevices = getWemoMakers()
+		if (deviceType.startsWith("urn:Belkin:device:Dimmer:1")) {
+			wemoDevices = getWemoDimmers()
 		}
 
 		def wemoDevice = wemoDevices.find {it?.key?.contains(body?.device?.UDN?.text())}
@@ -296,7 +296,7 @@ private def parseDiscoveryMessage(String description) {
 
 def doDeviceSync(){
 	log.debug "Doing Device Sync!"
-	discoverWemoMakers()
+	discoverWemoDimmers()
 }
 
 private String convertHexToIP(hex) {
